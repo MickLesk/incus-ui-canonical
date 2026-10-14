@@ -7,7 +7,9 @@ export interface InstanceTotals {
   total: number;
   running: number;
   containers: number;
+  containersRunning: number;
   virtualMachines: number;
+  virtualMachinesRunning: number;
   memoryUsed: number;
   diskUsed: number;
 }
@@ -15,6 +17,14 @@ export interface InstanceTotals {
 export interface HostCapacity {
   cpuCores: number;
   memoryTotal: number;
+  memoryUsed: number;
+}
+
+export interface LoadAverage {
+  one: number;
+  five: number;
+  ten: number;
+  processes: number;
 }
 
 const isRootDisk = (device: LxdDevices[string]): boolean => {
@@ -39,16 +49,21 @@ export const sumInstances = (instances: LxdInstance[]): InstanceTotals => {
     total: instances.length,
     running: 0,
     containers: 0,
+    containersRunning: 0,
     virtualMachines: 0,
+    virtualMachinesRunning: 0,
     memoryUsed: 0,
     diskUsed: 0,
   };
 
   instances.forEach((instance) => {
     const isRunning = instance.status === "Running";
+    const isVm = instance.type === "virtual-machine";
     totals.running += isRunning ? 1 : 0;
-    totals.containers += instance.type === "container" ? 1 : 0;
-    totals.virtualMachines += instance.type === "virtual-machine" ? 1 : 0;
+    totals.containers += isVm ? 0 : 1;
+    totals.containersRunning += !isVm && isRunning ? 1 : 0;
+    totals.virtualMachines += isVm ? 1 : 0;
+    totals.virtualMachinesRunning += isVm && isRunning ? 1 : 0;
     totals.memoryUsed += isRunning ? (instance.state?.memory?.usage ?? 0) : 0;
     totals.diskUsed += rootDiskUsage(instance);
   });
@@ -65,9 +80,26 @@ export const sumHostCapacity = (
     (sum, host) => ({
       cpuCores: sum.cpuCores + (host.cpu?.total ?? 0),
       memoryTotal: sum.memoryTotal + (host.memory?.total ?? 0),
+      memoryUsed: sum.memoryUsed + (host.memory?.used ?? 0),
     }),
-    { cpuCores: 0, memoryTotal: 0 },
+    { cpuCores: 0, memoryTotal: 0, memoryUsed: 0 },
   );
+};
+
+// Load of a single server. Cluster members report it individually.
+export const getLoad = (
+  resources?: LxdResources | LxdResources[],
+): LoadAverage | undefined => {
+  if (!resources || Array.isArray(resources) || !resources.load) {
+    return undefined;
+  }
+  const load = resources.load;
+  return {
+    one: load.Average1Min,
+    five: load.Average5Min,
+    ten: load.Average10Min,
+    processes: load.Processes,
+  };
 };
 
 export const percent = (used: number, total: number): number => {

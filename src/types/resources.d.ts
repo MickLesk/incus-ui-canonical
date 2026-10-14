@@ -1,6 +1,7 @@
 export interface LxdResources {
   cpu: Cpu;
   gpu: Gpu;
+  load?: Load;
   memory: Memory;
   network: Network;
   pci: Pci;
@@ -275,4 +276,11 @@ export interface Interfaces {
   protocol?: string;
   subclass: string;
   subclass_id: number;
+}
+
+export interface Load {
+  Average1Min: number;
+  Average5Min: number;
+  Average10Min: number;
+  Processes: number;
 }

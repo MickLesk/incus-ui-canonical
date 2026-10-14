@@ -3,6 +3,7 @@ import type { LxdResources } from "types/resources";
 import { humanFileSize } from "util/helpers";
 import {
   formatLimit,
+  getLoad,
   percent,
   sumHostCapacity,
   sumInstances,
@@ -66,6 +67,7 @@ describe("sumHostCapacity", () => {
     expect(sumHostCapacity(members)).toEqual({
       cpuCores: 16,
       memoryTotal: 80e9,
+      memoryUsed: 0,
     });
   });
 
@@ -74,11 +76,19 @@ describe("sumHostCapacity", () => {
       cpu: { total: 12 },
       memory: { total: 64e9 },
     } as unknown as LxdResources;
-    expect(sumHostCapacity(host)).toEqual({ cpuCores: 12, memoryTotal: 64e9 });
+    expect(sumHostCapacity(host)).toEqual({
+      cpuCores: 12,
+      memoryTotal: 64e9,
+      memoryUsed: 0,
+    });
   });
 
   it("is zero without data", () => {
-    expect(sumHostCapacity(undefined)).toEqual({ cpuCores: 0, memoryTotal: 0 });
+    expect(sumHostCapacity(undefined)).toEqual({
+      cpuCores: 0,
+      memoryTotal: 0,
+      memoryUsed: 0,
+    });
   });
 });
 
@@ -95,5 +105,54 @@ describe("formatLimit", () => {
     expect(formatLimit(-1, false)).toBe("unlimited");
     expect(formatLimit(3, false)).toBe("3");
     expect(formatLimit(1024, true)).toBe(humanFileSize(1024));
+  });
+});
+
+describe("sumInstances per type", () => {
+  it("counts running instances per type", () => {
+    const result = sumInstances([
+      inst({}),
+      inst({ status: "Stopped" }),
+      inst({ type: "virtual-machine" }),
+    ]);
+    expect(result).toMatchObject({
+      containersRunning: 1,
+      virtualMachinesRunning: 1,
+    });
+  });
+});
+
+describe("sumHostCapacity memory used", () => {
+  it("sums used memory across members", () => {
+    const members = [
+      { cpu: { total: 1 }, memory: { total: 10, used: 4 } },
+      { cpu: { total: 1 }, memory: { total: 10, used: 2 } },
+    ] as unknown as LxdResources[];
+    expect(sumHostCapacity(members)).toMatchObject({ memoryUsed: 6 });
+  });
+});
+
+describe("getLoad", () => {
+  it("returns the load of a single host", () => {
+    const host = {
+      load: {
+        Average1Min: 0.5,
+        Average5Min: 0.4,
+        Average10Min: 0.3,
+        Processes: 200,
+      },
+    } as unknown as LxdResources;
+    expect(getLoad(host)).toEqual({
+      one: 0.5,
+      five: 0.4,
+      ten: 0.3,
+      processes: 200,
+    });
+  });
+
+  it("is undefined for clusters and servers without load", () => {
+    expect(getLoad([] as unknown as LxdResources[])).toBeUndefined();
+    expect(getLoad({} as unknown as LxdResources)).toBeUndefined();
+    expect(getLoad(undefined)).toBeUndefined();
   });
 });
