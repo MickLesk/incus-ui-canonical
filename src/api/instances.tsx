@@ -86,7 +86,9 @@ export const fetchInstances = async (
 ): Promise<LxdInstance[]> => {
   const params = new URLSearchParams();
   addRecursion(params, hasSelectiveRecursion, isFineGrained);
-  params.set("filter", filter);
+  if (filter) {
+    params.set("filter", filter);
+  }
   if (project) {
     params.set("project", project);
   } else {
