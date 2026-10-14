@@ -1,0 +1,19 @@
+.project-usage {
+  &__cards {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    margin-bottom: 1.5rem;
+  }
+
+  &__card {
+    border: $border-thin;
+    padding: 1rem;
+  }
+
+  &__value {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    margin: 0;
+  }
+}
